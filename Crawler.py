@@ -20,7 +20,7 @@ page = 페이지
 정치 경제 사회 생활문화 세계 IT과학
 '''
 class NaverCrawler:
-    def __init__(self, _category, _page_list):
+    def __init__(self, _category):
         self.wrong_category = False
         if type(_category) is str:
             if "정치" in str(_category):
@@ -49,14 +49,12 @@ class NaverCrawler:
         if self.wrong_category:
             self.category_id = _category
 
-        print(self.category_id)
-        self.pages_tuple = tuple(_page_list)
-
     '''
         지정된 카테고리 및 페이지에 속한 뉴스 url을 집합의 형태로 전부 가져옵니다.
         중복된 뉴스를 방지하기 위해 list가 아닌 set을 사용합니다.
     '''
-    def crawl_all_urls(self):
+    def crawl_all_urls_with_pages(self, _page_list):
+        pages_tuple = tuple(_page_list)
         if self.wrong_category:
             print("잘못된 카테고리 값입니다 >> "+self.category_id)
 
@@ -67,7 +65,7 @@ class NaverCrawler:
             url_with_category = 'http://news.naver.com/main/main.nhn?mode=LSD&mid=shm&sid1=' + str(self.category_id)
             url_with_page = '#&date=%2000:00:00&page='
 
-            for each_page in self.pages_tuple:
+            for each_page in pages_tuple:
                 url_complete = url_with_category + url_with_page + str(each_page)
                 urls_to_crawl.append(url_complete)
 
@@ -84,8 +82,52 @@ class NaverCrawler:
                             and "sid1="+str(self.category_id) in href_data:
                         news_url_list.add(href_data)
 
-            print(news_url_list)
             return news_url_list
+
+    '''
+    지정된 카테고리 및 페이지에 속한 뉴스 url을 집합의 형태로 전부 가져옵니다.
+    중복된 뉴스를 방지하기 위해 list가 아닌 set을 사용합니다.
+    페이지별로 가져오지 않고 개수별로 가져옵니다.
+    
+    최대 개수는 1천 개 입니다.
+    '''
+
+    def crawl_all_urls_with_count(self, _count):
+        count = _count
+        if self.wrong_category:
+            print("잘못된 카테고리 값입니다 >> " + self.category_id)
+
+            return []
+        elif _count > 1000:
+            print("1000개 이상으로는 가져올 수 없습니다.")
+
+            return []
+        else:
+            urls_to_crawl = list()
+            news_url_set = set()
+
+            current_page = 1
+            is_collected_fully = False
+            while not is_collected_fully:
+                url_with_category = 'http://news.naver.com/main/main.nhn?mode=LSD&mid=shm&sid1=' + str(self.category_id)
+                url_with_page = '#&date=%2000:00:00&page='+str(current_page)
+
+                url_complete = url_with_category + url_with_page
+
+                response = urlopen(url_complete)
+                response_raw = response.read()
+                response_soup = BeautifulSoup(response_raw, 'html.parser')
+
+                for link in response_soup.find_all('a'):
+                    href_data = str(link.get('href'))
+                    if href_data.startswith('https://news.naver.com/main/read.nhn') \
+                            and "sid1=" + str(self.category_id) in href_data:
+                        news_url_set.add(href_data)
+                    if len(news_url_set) >= count:
+                        is_collected_fully = True
+                        break
+
+            return news_url_set
 
     '''
     특정 url 집합에 대한 뉴스 내용을 전부 가져옵니다.
@@ -124,10 +166,12 @@ class NaverCrawler:
 
 
 if __name__ == '__main__':
-    naverCrawler = NaverCrawler(_category='IT', _page_list=[1])
-    naverNewsUrls = naverCrawler.crawl_all_urls()
-    naverNewsContents = naverCrawler.get_news_contents_from_urls(naverNewsUrls)
+    naverCrawler = NaverCrawler(_category='IT')
+    naverNewsUrls = naverCrawler.crawl_all_urls_with_pages(_page_list=[1])
+    naverNewsUrlsCount = naverCrawler.crawl_all_urls_with_count(5)
+    print(naverNewsUrlsCount)
+    # naverNewsContents = naverCrawler.get_news_contents_from_urls(naverNewsUrls)
 
-    print(naverNewsUrls)
+    # print(naverNewsUrls)
 
-    print(naverNewsContents)
+    # print(naverNewsContents)
